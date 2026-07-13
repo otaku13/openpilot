@@ -30,6 +30,8 @@ class LongitudinalPlannerSP:
     self.resolver = SpeedLimitResolver()
     self.sla = SpeedLimitAssist(CP, CP_SP)
     self.generation = int(model_bundle.generation) if (model_bundle := get_active_bundle()) else None
+    self.model_ref = (model_bundle.ref or model_bundle.internalName) if model_bundle else "default"
+    self.model_name = (model_bundle.displayName or model_bundle.internalName) if model_bundle else "Default Model"
     self.source = LongitudinalPlanSource.cruise
     self.e2e_alerts_helper = E2EAlertsHelper()
 
@@ -137,5 +139,11 @@ class LongitudinalPlannerSP:
     e2eAlerts = longitudinalPlanSP.e2eAlerts
     e2eAlerts.greenLightAlert = self.e2e_alerts_helper.green_light_alert
     e2eAlerts.leadDepartAlert = self.e2e_alerts_helper.lead_depart_alert
+    e2eAlerts.stopIntentAlert = self.e2e_alerts_helper.stop_intent_alert
+    e2eAlerts.stopIntentDetected = self.e2e_alerts_helper.stop_intent_detected
+    e2eAlerts.stopDistance = float(self.e2e_alerts_helper.stop_distance)
+    e2eAlerts.stopIntentConfidence = float(self.e2e_alerts_helper.stop_intent_confidence)
+    e2eAlerts.modelRef = self.model_ref
+    e2eAlerts.modelName = self.model_name
 
     pm.send('longitudinalPlanSP', plan_sp_send)

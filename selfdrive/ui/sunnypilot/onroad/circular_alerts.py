@@ -23,11 +23,13 @@ class CircularAlertsRenderer:
     self._e2e_alert_frame = 0
     self._green_light_alert = False
     self._lead_depart_alert = False
+    self._stop_intent_alert = False
     self._standstill_elapsed_time = 0.0
     self._is_standstill = False
     self._alert_text = ""
     self._alert_img = None
     self._allow_e2e_alerts = False
+    self._alert_kind = None
 
   def update(self) -> None:
     sm = ui_state.sm
@@ -35,6 +37,7 @@ class CircularAlertsRenderer:
     car_state = sm['carState']
     self._green_light_alert = lp_sp.e2eAlerts.greenLightAlert
     self._lead_depart_alert = lp_sp.e2eAlerts.leadDepartAlert
+    self._stop_intent_alert = lp_sp.e2eAlerts.stopIntentAlert
     self._is_standstill = car_state.standstill
 
     if not ui_state.started:
@@ -43,7 +46,7 @@ class CircularAlertsRenderer:
     self._allow_e2e_alerts = sm['selfdriveState'].alertSize == log.SelfdriveState.AlertSize.none and \
                              sm.recv_frame['driverStateV2'] > ui_state.started_frame
 
-    if self._green_light_alert or self._lead_depart_alert:
+    if self._green_light_alert or self._lead_depart_alert or self._stop_intent_alert:
       self._e2e_alert_display_timer = 3 * gui_app.target_fps
       # reset onroad sleep timer for e2e alerts
       ui_state.reset_onroad_sleep_timer()
@@ -53,11 +56,17 @@ class CircularAlertsRenderer:
       self._e2e_alert_display_timer -= 1
 
       if self._green_light_alert:
+        self._alert_kind = "green_light"
         self._alert_text = "GREEN\nLIGHT"
         self._alert_img = self._green_light_alert_img
       elif self._lead_depart_alert:
+        self._alert_kind = "lead_depart"
         self._alert_text = "LEAD VEHICLE\nDEPARTING"
         self._alert_img = self._lead_depart_alert_img
+      elif self._stop_intent_alert:
+        self._alert_kind = "stop_intent"
+        self._alert_text = "POSSIBLE\nSTOP AHEAD"
+        self._alert_img = None
 
     elif ui_state.standstill_timer and self._is_standstill:
       self._alert_img = None
@@ -92,7 +101,8 @@ class CircularAlertsRenderer:
     if self._e2e_alert_display_timer == 0 and ui_state.standstill_timer and self._is_standstill:
       frame_color = rl.Color(255, 255, 255, 75)
     else:
-      frame_color = rl.Color(255, 255, 255, 75) if is_pulsing else rl.Color(0, 255, 0, 75)
+      pulse_color = rl.Color(255, 175, 3, 190) if self._alert_kind == "stop_intent" else rl.Color(0, 255, 0, 75)
+      frame_color = rl.Color(255, 255, 255, 75) if is_pulsing else pulse_color
 
     # Draw Circle
     rl.draw_circle_v(center, e2e_alert_size, rl.Color(0, 0, 0, 190))
@@ -106,7 +116,8 @@ class CircularAlertsRenderer:
       rl.draw_texture_ex(self._alert_img, rl.Vector2(img_x, img_y), 0.0, 1.0, rl.WHITE)
 
     # Draw Text
-    txt_color = rl.Color(255, 255, 255, 255) if is_pulsing else rl.Color(0, 255, 0, 190)
+    pulse_text_color = rl.Color(255, 175, 3, 255) if self._alert_kind == "stop_intent" else rl.Color(0, 255, 0, 190)
+    txt_color = rl.Color(255, 255, 255, 255) if is_pulsing else pulse_text_color
     font = gui_app.font(FontWeight.BOLD)
     text_size = 48
     spacing = 0

@@ -5,6 +5,8 @@ This file is part of sunnypilot and is licensed under the MIT License.
 See the LICENSE.md file in the root directory for more details.
 """
 
+import math
+
 from cereal import messaging, custom
 
 from openpilot.common.params import Params
@@ -15,6 +17,15 @@ from openpilot.sunnypilot.selfdrive.selfdrived.events import EventsSP
 GREEN_LIGHT_X_THRESHOLD = 30
 LEAD_DEPART_DIST_THRESHOLD = 1.0
 TRIGGER_TIMER_THRESHOLD = 0.3
+STOP_INTENT_TRIGGER_SECONDS = 0.8
+STOP_INTENT_CLEAR_SECONDS = 1.0
+STOP_INTENT_COOLDOWN_SECONDS = 8.0
+STOP_INTENT_MIN_SPEED = 2.5
+STOP_INTENT_MAX_SPEED = 27.0
+STOP_INTENT_MAX_PREDICTED_SPEED = 1.0
+STOP_INTENT_MIN_DISTANCE = 5.0
+STOP_INTENT_MAX_DISTANCE = 120.0
+STOP_INTENT_LEAD_MARGIN = 8.0
 
 
 class E2EStates:
@@ -24,8 +35,8 @@ class E2EStates:
 
 
 class E2EAlertsHelper:
-  def __init__(self):
-    self._params = Params()
+  def __init__(self, params=None):
+    self._params = params or Params()
     self.frame = -1
     self.green_light_state = E2EStates.INACTIVE
     self.prev_green_light_state = E2EStates.INACTIVE
@@ -36,6 +47,11 @@ class E2EAlertsHelper:
     self.green_light_alert_enabled = self._params.get_bool("GreenLightAlert")
     self.lead_depart_alert = False
     self.lead_depart_alert_enabled = self._params.get_bool("LeadDepartAlert")
+    self.stop_intent_alert = False
+    self.stop_intent_alert_enabled = self._params.get_bool("StopIntentAlert")
+    self.stop_intent_detected = False
+    self.stop_distance = 0.0
+    self.stop_intent_confidence = 0.0
 
     self.green_light_trigger_timer = 0
     self.lead_depart_trigger_timer = 0
@@ -50,10 +66,70 @@ class E2EAlertsHelper:
     self.lead_depart_confirmed_lead = False
     self.lead_depart_armed = False
 
+    self.stop_intent_trigger_timer = 0
+    self.stop_intent_clear_timer = 0
+    self.stop_intent_cooldown_timer = 0
+    self.stop_intent_latched = False
+
   def _read_params(self) -> None:
     if self.frame % int(PARAMS_UPDATE_PERIOD / DT_MDL) == 0:
       self.green_light_alert_enabled = self._params.get_bool("GreenLightAlert")
       self.lead_depart_alert_enabled = self._params.get_bool("LeadDepartAlert")
+      self.stop_intent_alert_enabled = self._params.get_bool("StopIntentAlert")
+
+  @staticmethod
+  def _model_stop_distance(model) -> float:
+    model_x = model.position.x
+    model_v = model.velocity.x
+    if len(model_x) == 0 or len(model_x) != len(model_v):
+      return 0.0
+
+    for x, v in zip(model_x, model_v, strict=True):
+      if math.isfinite(x) and math.isfinite(v) and v <= STOP_INTENT_MAX_PREDICTED_SPEED:
+        return float(x)
+    return 0.0
+
+  def _stop_intent_candidate(self, sm: messaging.SubMaster) -> tuple[bool, float]:
+    CS = sm['carState']
+    model = sm['modelV2']
+    radar_lead = sm['radarState'].leadOne
+    stop_distance = self._model_stop_distance(model)
+
+    plausible_distance = STOP_INTENT_MIN_DISTANCE <= stop_distance <= STOP_INTENT_MAX_DISTANCE
+    lead_explains_stop = radar_lead.status and radar_lead.dRel <= stop_distance + STOP_INTENT_LEAD_MARGIN
+    driver_already_responding = CS.gasPressed or CS.brakePressed
+    speed_in_range = STOP_INTENT_MIN_SPEED <= CS.vEgo <= STOP_INTENT_MAX_SPEED
+
+    candidate = self.stop_intent_alert_enabled and speed_in_range and plausible_distance and \
+                model.action.shouldStop and not lead_explains_stop and not driver_already_responding
+    return candidate, stop_distance if plausible_distance else 0.0
+
+  def _update_stop_intent(self, sm: messaging.SubMaster) -> None:
+    candidate, stop_distance = self._stop_intent_candidate(sm)
+    self.stop_intent_alert = False
+    self.stop_distance = stop_distance
+
+    if self.stop_intent_cooldown_timer > 0:
+      self.stop_intent_cooldown_timer -= 1
+
+    if candidate:
+      self.stop_intent_trigger_timer += 1
+      self.stop_intent_clear_timer = 0
+    else:
+      self.stop_intent_trigger_timer = 0
+      self.stop_intent_clear_timer += 1
+
+    trigger_frames = max(1, round(STOP_INTENT_TRIGGER_SECONDS / DT_MDL))
+    clear_frames = max(1, round(STOP_INTENT_CLEAR_SECONDS / DT_MDL))
+    self.stop_intent_confidence = min(self.stop_intent_trigger_timer / trigger_frames, 1.0) if candidate else 0.0
+    self.stop_intent_detected = candidate and self.stop_intent_trigger_timer >= trigger_frames
+
+    if self.stop_intent_detected and not self.stop_intent_latched and self.stop_intent_cooldown_timer == 0:
+      self.stop_intent_alert = True
+      self.stop_intent_latched = True
+      self.stop_intent_cooldown_timer = round(STOP_INTENT_COOLDOWN_SECONDS / DT_MDL)
+    elif self.stop_intent_clear_timer >= clear_frames:
+      self.stop_intent_latched = False
 
   def update_alert_trigger(self, sm: messaging.SubMaster):
     CS = sm['carState']
@@ -144,6 +220,7 @@ class E2EAlertsHelper:
 
   def update(self, sm: messaging.SubMaster, events_sp: EventsSP) -> None:
     self._read_params()
+    self._update_stop_intent(sm)
 
     green_light_trigger, lead_depart_trigger = self.update_alert_trigger(sm)
 
@@ -164,7 +241,7 @@ class E2EAlertsHelper:
       lead_depart_trigger
     )
 
-    if self.green_light_alert or self.lead_depart_alert:
+    if self.green_light_alert or self.lead_depart_alert or self.stop_intent_alert:
       events_sp.add(custom.OnroadEventSP.EventName.e2eChime)
 
     self.frame += 1

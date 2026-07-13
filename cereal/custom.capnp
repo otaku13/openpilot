@@ -295,6 +295,12 @@ struct LongitudinalPlanSP @0xf35cc4560bbf6ec2 {
   struct E2eAlerts {
     greenLightAlert @0 :Bool;
     leadDepartAlert @1 :Bool;
+    stopIntentAlert @2 :Bool;
+    stopIntentDetected @3 :Bool;
+    stopDistance @4 :Float32;
+    stopIntentConfidence @5 :Float32;
+    modelRef @6 :Text;
+    modelName @7 :Text;
   }
 }
 

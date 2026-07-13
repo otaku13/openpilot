@@ -105,6 +105,12 @@ sections:
     description: 'A chime and on-screen alert will play when you are stopped, and the vehicle in front of you start moving.
       On-screen visual alert is only available on comma 3X. Note: This chime is only designed as a notification. It is the
       driver''s responsibility to observe their environment and make decisions accordingly.'
+  - key: StopIntentAlert
+    widget: toggle
+    title: Possible Stop Ahead Alert (Experimental)
+    description: 'Uses the driving model to warn when it predicts a stop without a radar-tracked lead vehicle. This may
+      indicate a red light or stop sign, but false and missed alerts are expected. This is an advisory only and cannot
+      brake or determine when it is safe to proceed.'
   - key: RainbowMode
     widget: toggle
     title: Tesla Rainbow Mode

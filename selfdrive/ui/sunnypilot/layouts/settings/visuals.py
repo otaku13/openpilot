@@ -72,6 +72,13 @@ class VisualsLayout(Widget):
            "It is the driver's responsibility to observe their environment and make decisions accordingly."),
         None,
       ),
+      "StopIntentAlert": (
+        lambda: tr("Possible Stop Ahead Alert (Experimental)"),
+        tr("Uses the driving model to warn when it predicts a stop without a radar-tracked lead vehicle. " +
+           "This may indicate a red light or stop sign, but false and missed alerts are expected." +
+           "<br>This is an advisory only and cannot brake or determine when it is safe to proceed."),
+        None,
+      ),
       "TrueVEgoUI": (
         lambda: tr("Speedometer: Always Display True Speed"),
         tr("For applicable vehicles, always display the true vehicle current speed from wheel speed sensors."),
