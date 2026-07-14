@@ -29,3 +29,19 @@ The warning requires all of the following for at least 0.8 seconds:
 - no current driver accelerator or brake input.
 
 An eight-second cooldown and one-second clear interval prevent repeated alerts from a single prediction.
+
+## Install on comma 3X
+
+USB is not required. With the comma 3X connected to Wi-Fi, choose **Custom Software** after an uninstall/factory reset and
+enter:
+
+```text
+installer.comma.ai/otaku13/ev6-red-light-advisory
+```
+
+If this fork is already installed, use **Settings → Software → CHECK**, then select `ev6-red-light-advisory` as the target
+branch. This is an experimental development branch rather than an official sunnypilot release; install it only for the
+controlled EV6 testing described here. Keep the source firmware repository public so the device installer can retrieve it.
+
+After installation, select **Pop Model (March 20, 2026)** and enable **Possible Stop Ahead Alert** under Visuals. Configure
+the separate private summary uploader by following `docs/EV6_PRIVATE_DATA_EXPORT.md`.

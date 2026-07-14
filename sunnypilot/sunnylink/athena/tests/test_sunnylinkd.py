@@ -23,6 +23,8 @@ class TestSunnylinkdMethods:
 
   def test_saveParams_blocked(self):
     blocked_params = {
+      "Ev6DataGithubToken": "github_pat_secret",
+      "Ev6DataHashSalt": "private-salt",
       "GithubUsername": "attacker",
       "GithubSshKeys": "ssh-rsa attacker_key",
     }
@@ -30,6 +32,10 @@ class TestSunnylinkdMethods:
     sunnylinkd.saveParams(blocked_params)
 
     assert len(self.saved_params) == 0
+
+  def test_ev6_secrets_are_private_and_blocked(self):
+    assert {"Ev6DataGithubToken", "Ev6DataHashSalt"} <= sunnylinkd.PRIVATE_PARAMS
+    assert sunnylinkd.PRIVATE_PARAMS <= sunnylinkd.BLOCKED_PARAMS
 
   def test_saveParams_allowed(self):
     allowed_params = {

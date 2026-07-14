@@ -49,12 +49,20 @@ BLOCKED_PARAMS = {
   "AdbEnabled",
   "CompletedSunnylinkConsentVersion",
   "CompletedTrainingVersion",
+  "Ev6DataGithubToken",
+  "Ev6DataHashSalt",
   "GithubUsername",  # Could grant SSH access
   "GithubSshKeys",   # Direct SSH key injection
   "HasAcceptedTerms",
   "HasAcceptedTermsSP",
   "OnroadCycleRequested",      # Prevent remote cycle trigger
   "ParamsVersion",         # Device-managed version counter
+}
+
+# Parameters that must never be listed or returned through remote settings RPC.
+PRIVATE_PARAMS = {
+  "Ev6DataGithubToken",
+  "Ev6DataHashSalt",
 }
 
 
@@ -165,7 +173,7 @@ def toggleLogUpload(enabled: bool):
 
 @dispatcher.add_method
 def getParamsAllKeys() -> list[str]:
-  keys: list[str] = [k.decode('utf-8') for k in Params().all_keys()]
+  keys: list[str] = [k.decode('utf-8') for k in Params().all_keys() if k.decode('utf-8') not in PRIVATE_PARAMS]
   return keys
 
 
@@ -192,7 +200,7 @@ def getParamsMetadata() -> str:
 @dispatcher.add_method
 def getParams(params_keys: list[str], compression: bool = False) -> str | dict[str, str]:
   params = Params()
-  available_keys: list[str] = [k.decode('utf-8') for k in Params().all_keys()]
+  available_keys: list[str] = [k.decode('utf-8') for k in Params().all_keys() if k.decode('utf-8') not in PRIVATE_PARAMS]
 
   try:
     zero_values: dict[int, bytes] = {

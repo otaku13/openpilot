@@ -11,6 +11,7 @@ from openpilot.system.hardware.hw import Paths
 from openpilot.sunnypilot.mapd.mapd_manager import MAPD_PATH
 
 from openpilot.sunnypilot.models.helpers import get_active_model_runner
+from openpilot.sunnypilot.ev6_data_exporter.gating import ev6_data_exporter_ready
 from openpilot.sunnypilot.sunnylink.utils import sunnylink_need_register, sunnylink_ready, use_sunnylink_uploader
 
 WEBCAM = os.getenv("USE_WEBCAM") is not None
@@ -153,6 +154,7 @@ procs = [
   PythonProcess("updated", "system.updated.updated", only_offroad, enabled=not PC),
   PythonProcess("uploader", "system.loggerd.uploader", uploader_ready),
   PythonProcess("statsd", "system.statsd", always_run),
+  PythonProcess("ev6_data_exporter", "sunnypilot.ev6_data_exporter.exporter", ev6_data_exporter_ready),
   PythonProcess("feedbackd", "selfdrive.ui.feedback.feedbackd", only_onroad),
 
   # debug procs
