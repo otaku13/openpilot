@@ -36,7 +36,7 @@ USB is not required. With the comma 3X connected to Wi-Fi, choose **Custom Softw
 enter:
 
 ```text
-installer.comma.ai/otaku13/sunnypilot/ev6
+installer.comma.ai/otaku13/ev6
 ```
 
 If this fork is already installed, use **Settings → Software → CHECK**, then select `ev6-red-light-advisory` as the target
