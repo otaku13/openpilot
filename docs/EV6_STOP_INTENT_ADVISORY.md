@@ -36,11 +36,11 @@ USB is not required. With the comma 3X connected to Wi-Fi, choose **Custom Softw
 enter:
 
 ```text
-installer.comma.ai/otaku13/ev6-red-light-advisory
+installer.comma.ai/otaku13/sunnypilot/ev6
 ```
 
 If this fork is already installed, use **Settings → Software → CHECK**, then select `ev6-red-light-advisory` as the target
-branch. This is an experimental development branch rather than an official sunnypilot release; install it only for the
+branch, or `ev6` for the shorter alias. This is an experimental development branch rather than an official sunnypilot release; install it only for the
 controlled EV6 testing described here. Keep the source firmware repository public so the device installer can retrieve it.
 
 After installation, select **Pop Model (March 20, 2026)** and enable **Possible Stop Ahead Alert** under Visuals. Configure
