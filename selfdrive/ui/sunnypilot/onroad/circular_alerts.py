@@ -13,6 +13,9 @@ from openpilot.selfdrive.ui.sunnypilot.onroad.developer_ui import DeveloperUiSta
 from openpilot.system.ui.lib.application import gui_app, FontWeight, FONT_SCALE
 from openpilot.system.ui.lib.text_measure import measure_text_cached
 
+METER_TO_FOOT = 3.28084
+METER_TO_MILE = 0.000621371
+
 
 class CircularAlertsRenderer:
   def __init__(self):
@@ -24,6 +27,8 @@ class CircularAlertsRenderer:
     self._green_light_alert = False
     self._lead_depart_alert = False
     self._stop_intent_alert = False
+    self._stop_intent_detected = False
+    self._stop_distance = 0.0
     self._standstill_elapsed_time = 0.0
     self._is_standstill = False
     self._alert_text = ""
@@ -38,6 +43,8 @@ class CircularAlertsRenderer:
     self._green_light_alert = lp_sp.e2eAlerts.greenLightAlert
     self._lead_depart_alert = lp_sp.e2eAlerts.leadDepartAlert
     self._stop_intent_alert = lp_sp.e2eAlerts.stopIntentAlert
+    self._stop_intent_detected = lp_sp.e2eAlerts.stopIntentDetected
+    self._stop_distance = lp_sp.e2eAlerts.stopDistance
     self._is_standstill = car_state.standstill
 
     if not ui_state.started:
@@ -51,9 +58,9 @@ class CircularAlertsRenderer:
       # reset onroad sleep timer for e2e alerts
       ui_state.reset_onroad_sleep_timer()
 
-    if self._e2e_alert_display_timer > 0:
+    if self._e2e_alert_display_timer > 0 or self._stop_intent_detected:
       self._e2e_alert_frame += 1
-      self._e2e_alert_display_timer -= 1
+      self._e2e_alert_display_timer = max(0, self._e2e_alert_display_timer - 1)
 
       if self._green_light_alert:
         self._alert_kind = "green_light"
@@ -66,6 +73,11 @@ class CircularAlertsRenderer:
       elif self._stop_intent_alert:
         self._alert_kind = "stop_intent"
         self._alert_text = "POSSIBLE\nSTOP AHEAD"
+        self._alert_img = None
+      elif self._stop_intent_detected:
+        self._alert_kind = "stop_intent"
+        stop_distance_text = self._format_stop_distance(self._stop_distance)
+        self._alert_text = "STOP\nINTENT" if not stop_distance_text else f"STOP\nINTENT\n{stop_distance_text}"
         self._alert_img = None
 
     elif ui_state.standstill_timer and self._is_standstill:
@@ -82,7 +94,8 @@ class CircularAlertsRenderer:
         self._standstill_elapsed_time = 0.0
 
   def render(self, rect: rl.Rectangle) -> None:
-    if not self._allow_e2e_alerts or (self._e2e_alert_display_timer <= 0 and not (ui_state.standstill_timer and self._is_standstill)):
+    if not self._allow_e2e_alerts or (self._e2e_alert_display_timer <= 0 and not self._stop_intent_detected and
+                                      not (ui_state.standstill_timer and self._is_standstill)):
       return
 
     e2e_alert_size = 250
@@ -149,3 +162,25 @@ class CircularAlertsRenderer:
         line_x = center.x - measure.x / 2
         rl.draw_text_ex(font, line, rl.Vector2(line_x, current_y), text_size, spacing, txt_color)
         current_y += text_size * FONT_SCALE
+
+  @staticmethod
+  def _format_stop_distance(distance: float) -> str:
+    if distance <= 0:
+      return ""
+
+    if ui_state.is_metric:
+      if distance < 10:
+        return "NEAR"
+      if distance >= 1000:
+        return f"{distance / 1000:.1f} KM"
+      rounded = round(distance, -1) if distance < 200 else round(distance, -2)
+      return f"{int(rounded)} M"
+
+    distance_ft = distance * METER_TO_FOOT
+    if distance_ft < 30:
+      return "NEAR"
+    if distance_ft >= 900:
+      return f"{distance * METER_TO_MILE:.1f} MI"
+    if distance_ft < 500:
+      return f"{int(round(distance_ft / 50) * 50)} FT"
+    return f"{int(round(distance_ft / 100) * 100)} FT"
